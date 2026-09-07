@@ -1,10 +1,12 @@
 POSTGRES_USER ?= avito
 POSTGRES_PASSWORD ?= avito
 POSTGRES_DB ?= avito_kitchen
+POSTGRES_PORT ?= 5432
 
 DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
+TEST_DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/postgres?sslmode=disable
 
-.PHONY: up down logs migrate-up migrate-down db-shell db-reset
+.PHONY: up down logs migrate-up migrate-down db-shell db-reset test test-integration
 
 up:
 	docker compose up -d
@@ -31,3 +33,10 @@ db-shell:
 db-reset:
 	docker compose down -v
 	docker compose up -d
+
+test:
+	go test ./...
+
+test-integration:
+	docker compose up -d --wait postgres
+	go test ./internal/repository/postgres -v
