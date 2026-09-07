@@ -1,0 +1,33 @@
+@startuml AvitoKitchenContainers
+
+title Авито.Кухня — C4 Container Diagram
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "Пользователь" as User
+actor "Сотрудник заведения" as RestaurantEmployee
+
+rectangle "Web client\n[Web application]\n\nКлиентская часть Авито.Кухни\nНе реализуется в рамках MVP" as WebClient
+
+package "Авито.Кухня" {
+
+    rectangle "Avito Kitchen API\n[Go, REST API]\n\nБизнес-логика работы\nс меню и заказами" as API
+
+    database "PostgreSQL\n\nRestaurant\nMenuItem\nOrder\nOrderItem" as DB
+}
+
+rectangle "Demo Restaurant Service\n[Go]\n\nДемонстрационный сервис\nинтеграции заведения" as RestaurantDemo
+
+User --> WebClient : Использует
+
+WebClient --> API : HTTP/REST\nПросмотр заведений и меню\nСоздание и получение заказов
+
+RestaurantEmployee --> RestaurantDemo : Использует
+
+RestaurantDemo --> API : HTTP/REST\nУправление меню\nПолучение заказов\nИзменение статусов
+
+API --> DB : SQL\nЧтение и изменение данных
+
+@enduml
