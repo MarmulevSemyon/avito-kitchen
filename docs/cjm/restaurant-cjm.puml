@@ -1,0 +1,95 @@
+@startuml restaurant-cjm
+
+title Авито.Кухня — CJM заведения
+
+skinparam shadowing false
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    DiamondBackgroundColor White
+    DiamondBorderColor Black
+}
+
+start
+
+partition "Заведение" {
+    :Начинает работу с Авито.Кухней;
+    :Просматривает своё меню;
+}
+
+partition "Система" {
+    :Показывает текущие позиции меню;
+}
+
+partition "Заведение" {
+    if (Нужно изменить меню?) then (Да)
+        :Добавляет или изменяет позицию;
+        :Изменяет цену, описание\nили доступность;
+    else (Нет)
+    endif
+}
+
+partition "Система" {
+    :Сохраняет изменения меню;
+}
+
+partition "Заведение" {
+    :Получает список поступивших заказов;
+    :Открывает новый заказ;
+}
+
+partition "Система" {
+    :Показывает заказ\nсо статусом CREATED;
+}
+
+partition "Заведение" {
+    :Просматривает новый заказ;
+
+    if (Готово принять заказ\nв работу?) then (Да)
+        :Принимает заказ;
+    else (Нет)
+        :Отклоняет заказ;
+    endif
+}
+
+partition "Система" {
+    if (Заказ принят?) then (Да)
+        :Меняет статус\nCREATED → ACCEPTED;
+    else (Нет)
+        :Меняет статус\nCREATED → REJECTED;
+        stop
+    endif
+}
+
+partition "Заведение" {
+    :Начинает приготовление заказа;
+}
+
+partition "Система" {
+    :Меняет статус\nACCEPTED → PREPARING;
+}
+
+partition "Заведение" {
+    :Завершает приготовление;
+    :Отмечает заказ готовым;
+}
+
+partition "Система" {
+    :Меняет статус\nPREPARING → READY;
+}
+
+partition "Заведение" {
+    :Завершает выполнение заказа;
+}
+
+partition "Система" {
+    :Меняет статус\nREADY → COMPLETED;
+}
+
+partition "Заведение" {
+    :Видит завершённый заказ;
+}
+
+stop
+
+@enduml
