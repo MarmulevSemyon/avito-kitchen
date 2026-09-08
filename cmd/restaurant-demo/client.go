@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -83,7 +84,11 @@ func (c *apiClient) listCreatedOrders(
 			err,
 		)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, responseError(response)
