@@ -3,15 +3,18 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/domain"
 )
 
-// RestaurantRepository describes restaurant operations required
-// during order creation.
-//
-// GetByIDLocked must prevent concurrent modification of the returned
-// restaurant until the current transaction is completed.
+const (
+	defaultOrdersLimit = 20
+	maxOrdersLimit     = 100
+)
+
+// RestaurantRepository contains restaurant operations required
+// inside transactional order use cases.
 type RestaurantRepository interface {
 	GetByIDLocked(
 		ctx context.Context,
@@ -19,11 +22,8 @@ type RestaurantRepository interface {
 	) (domain.Restaurant, error)
 }
 
-// MenuItemRepository describes menu operations required
-// during order creation.
-//
-// GetByIDsLocked must prevent concurrent modification of the returned
-// menu items until the current transaction is completed.
+// MenuItemRepository contains menu operations required
+// inside transactional order use cases.
 type MenuItemRepository interface {
 	GetByIDsLocked(
 		ctx context.Context,
@@ -31,28 +31,47 @@ type MenuItemRepository interface {
 	) ([]domain.MenuItem, error)
 }
 
-// OrderRepository describes order persistence operations.
+// OrderRepository contains order operations that must participate
+// in the current transaction.
 type OrderRepository interface {
 	Create(
 		ctx context.Context,
 		order domain.Order,
 	) (domain.Order, error)
+
+	GetByIDLocked(
+		ctx context.Context,
+		id int64,
+	) (domain.Order, error)
+
+	UpdateStatus(
+		ctx context.Context,
+		order domain.Order,
+	) (domain.Order, error)
 }
 
-// TransactionRepositories contains repositories bound to the same
-// database transaction.
+// OrderQueryRepository contains non-transactional order reads.
+type OrderQueryRepository interface {
+	GetByID(
+		ctx context.Context,
+		id int64,
+	) (domain.Order, error)
+
+	ListByRestaurant(
+		ctx context.Context,
+		restaurantID int64,
+		status *domain.OrderStatus,
+		limit int,
+		cursor *OrderCursor,
+	) ([]domain.Order, error)
+}
+
 type TransactionRepositories struct {
 	Restaurants RestaurantRepository
 	MenuItems   MenuItemRepository
 	Orders      OrderRepository
 }
 
-// UnitOfWork defines the transaction boundary for an application use case.
-//
-// The implementation must:
-//   - start a transaction before calling fn;
-//   - commit if fn returns nil;
-//   - rollback if fn returns an error.
 type UnitOfWork interface {
 	WithinTransaction(
 		ctx context.Context,
@@ -61,12 +80,17 @@ type UnitOfWork interface {
 }
 
 type OrderService struct {
-	uow UnitOfWork
+	uow     UnitOfWork
+	queries OrderQueryRepository
 }
 
-func NewOrderService(uow UnitOfWork) *OrderService {
+func NewOrderService(
+	uow UnitOfWork,
+	queries OrderQueryRepository,
+) *OrderService {
 	return &OrderService{
-		uow: uow,
+		uow:     uow,
+		queries: queries,
 	}
 }
 
@@ -81,12 +105,39 @@ type CreateOrderItemInput struct {
 	Quantity   int
 }
 
+type OrderCursor struct {
+	CreatedAt time.Time
+	ID        int64
+}
+
+type ListRestaurantOrdersInput struct {
+	RestaurantID int64
+	Status       *domain.OrderStatus
+	Limit        int
+	Cursor       *OrderCursor
+}
+
+type ListRestaurantOrdersResult struct {
+	Orders     []domain.Order
+	NextCursor *OrderCursor
+}
+
+type UpdateOrderStatusInput struct {
+	RestaurantID int64
+	OrderID      int64
+	Status       domain.OrderStatus
+}
+
 func (s *OrderService) CreateOrder(
 	ctx context.Context,
 	input CreateOrderInput,
 ) (domain.Order, error) {
 	if input.UserID <= 0 {
 		return domain.Order{}, domain.ErrInvalidUserID
+	}
+
+	if input.RestaurantID <= 0 {
+		return domain.Order{}, domain.ErrInvalidRestaurantID
 	}
 
 	if len(input.Items) == 0 {
@@ -205,10 +256,141 @@ func (s *OrderService) CreateOrder(
 	return createdOrder, nil
 }
 
+func (s *OrderService) GetOrder(
+	ctx context.Context,
+	orderID int64,
+) (domain.Order, error) {
+	if orderID <= 0 {
+		return domain.Order{}, domain.ErrInvalidOrderID
+	}
+
+	order, err := s.queries.GetByID(ctx, orderID)
+	if err != nil {
+		return domain.Order{}, fmt.Errorf("get order: %w", err)
+	}
+
+	return order, nil
+}
+
+func (s *OrderService) ListRestaurantOrders(
+	ctx context.Context,
+	input ListRestaurantOrdersInput,
+) (ListRestaurantOrdersResult, error) {
+	if input.RestaurantID <= 0 {
+		return ListRestaurantOrdersResult{},
+			domain.ErrInvalidRestaurantID
+	}
+
+	if input.Status != nil && !isValidOrderStatus(*input.Status) {
+		return ListRestaurantOrdersResult{},
+			domain.ErrInvalidOrderStatus
+	}
+
+	limit := input.Limit
+	if limit == 0 {
+		limit = defaultOrdersLimit
+	}
+
+	if limit < 1 || limit > maxOrdersLimit {
+		return ListRestaurantOrdersResult{},
+			domain.ErrInvalidLimit
+	}
+
+	// Запрашиваем на одну запись больше, чтобы определить,
+	// существует ли следующая страница.
+	orders, err := s.queries.ListByRestaurant(
+		ctx,
+		input.RestaurantID,
+		input.Status,
+		limit+1,
+		input.Cursor,
+	)
+	if err != nil {
+		return ListRestaurantOrdersResult{},
+			fmt.Errorf("list restaurant orders: %w", err)
+	}
+
+	result := ListRestaurantOrdersResult{
+		Orders: orders,
+	}
+
+	if len(orders) > limit {
+		result.Orders = orders[:limit]
+
+		last := result.Orders[len(result.Orders)-1]
+
+		result.NextCursor = &OrderCursor{
+			CreatedAt: last.CreatedAt,
+			ID:        last.ID,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *OrderService) UpdateStatus(
+	ctx context.Context,
+	input UpdateOrderStatusInput,
+) (domain.Order, error) {
+	if input.RestaurantID <= 0 {
+		return domain.Order{}, domain.ErrInvalidRestaurantID
+	}
+
+	if input.OrderID <= 0 {
+		return domain.Order{}, domain.ErrInvalidOrderID
+	}
+
+	if !isValidOrderStatus(input.Status) {
+		return domain.Order{}, domain.ErrInvalidOrderStatus
+	}
+
+	var updatedOrder domain.Order
+
+	err := s.uow.WithinTransaction(
+		ctx,
+		func(repositories TransactionRepositories) error {
+			order, err := repositories.Orders.GetByIDLocked(
+				ctx,
+				input.OrderID,
+			)
+			if err != nil {
+				return fmt.Errorf("get order: %w", err)
+			}
+
+			if order.RestaurantID != input.RestaurantID {
+				return domain.ErrOrderRestaurantMismatch
+			}
+
+			if err := order.ChangeStatus(input.Status); err != nil {
+				return err
+			}
+
+			updatedOrder, err = repositories.Orders.UpdateStatus(
+				ctx,
+				order,
+			)
+			if err != nil {
+				return fmt.Errorf("update order status: %w", err)
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		return domain.Order{}, err
+	}
+
+	return updatedOrder, nil
+}
+
 func validateOrderItems(items []CreateOrderItemInput) error {
 	seen := make(map[int64]struct{}, len(items))
 
 	for _, item := range items {
+		if item.MenuItemID <= 0 {
+			return domain.ErrInvalidMenuItemID
+		}
+
 		if item.Quantity <= 0 {
 			return fmt.Errorf(
 				"%w: menu_item_id=%d",
@@ -229,4 +411,19 @@ func validateOrderItems(items []CreateOrderItemInput) error {
 	}
 
 	return nil
+}
+
+func isValidOrderStatus(status domain.OrderStatus) bool {
+	switch status {
+	case domain.OrderStatusCreated,
+		domain.OrderStatusAccepted,
+		domain.OrderStatusPreparing,
+		domain.OrderStatusReady,
+		domain.OrderStatusCompleted,
+		domain.OrderStatusRejected:
+		return true
+
+	default:
+		return false
+	}
 }

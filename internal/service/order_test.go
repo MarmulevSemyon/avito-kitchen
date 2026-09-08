@@ -49,16 +49,22 @@ func (r *menuItemRepositoryStub) GetByIDsLocked(
 }
 
 type orderRepositoryStub struct {
-	err      error
-	calls    int
-	received domain.Order
+	err error
+
+	createCalls        int
+	getByIDLockedCalls int
+	updateStatusCalls  int
+
+	received    domain.Order
+	receivedID  int64
+	lockedOrder domain.Order
 }
 
 func (r *orderRepositoryStub) Create(
 	_ context.Context,
 	order domain.Order,
 ) (domain.Order, error) {
-	r.calls++
+	r.createCalls++
 	r.received = order
 
 	if r.err != nil {
@@ -66,6 +72,34 @@ func (r *orderRepositoryStub) Create(
 	}
 
 	order.ID = 1
+
+	return order, nil
+}
+
+func (r *orderRepositoryStub) GetByIDLocked(
+	_ context.Context,
+	id int64,
+) (domain.Order, error) {
+	r.getByIDLockedCalls++
+	r.receivedID = id
+
+	if r.err != nil {
+		return domain.Order{}, r.err
+	}
+
+	return r.lockedOrder, nil
+}
+
+func (r *orderRepositoryStub) UpdateStatus(
+	_ context.Context,
+	order domain.Order,
+) (domain.Order, error) {
+	r.updateStatusCalls++
+	r.received = order
+
+	if r.err != nil {
+		return domain.Order{}, r.err
+	}
 
 	return order, nil
 }
@@ -132,7 +166,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	order, err := orderService.CreateOrder(
 		context.Background(),
@@ -160,7 +194,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 
 	require.Equal(t, 1, restaurantRepo.calls)
 	require.Equal(t, 1, menuRepo.calls)
-	require.Equal(t, 1, orderRepo.calls)
+	require.Equal(t, 1, orderRepo.createCalls)
 
 	require.Equal(t, int64(1), order.ID)
 	require.Equal(t, int64(12345), order.UserID)
@@ -186,7 +220,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 func TestOrderService_CreateOrder_EmptyOrder(t *testing.T) {
 	uow := &unitOfWorkStub{}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -205,7 +239,7 @@ func TestOrderService_CreateOrder_EmptyOrder(t *testing.T) {
 func TestOrderService_CreateOrder_InvalidQuantity(t *testing.T) {
 	uow := &unitOfWorkStub{}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -234,7 +268,7 @@ func TestOrderService_CreateOrder_InvalidQuantity(t *testing.T) {
 func TestOrderService_CreateOrder_DuplicateMenuItem(t *testing.T) {
 	uow := &unitOfWorkStub{}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -282,7 +316,7 @@ func TestOrderService_CreateOrder_RestaurantUnavailable(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -313,7 +347,7 @@ func TestOrderService_CreateOrder_RestaurantUnavailable(t *testing.T) {
 	require.Equal(t, 0, menuRepo.calls)
 
 	// Заказ не должен попасть в repository.
-	require.Equal(t, 0, orderRepo.calls)
+	require.Equal(t, 0, orderRepo.createCalls)
 }
 
 func TestOrderService_CreateOrder_MenuItemNotFound(t *testing.T) {
@@ -340,7 +374,7 @@ func TestOrderService_CreateOrder_MenuItemNotFound(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -361,7 +395,7 @@ func TestOrderService_CreateOrder_MenuItemNotFound(t *testing.T) {
 	require.True(t, uow.rolledBack)
 	require.False(t, uow.committed)
 
-	require.Equal(t, 0, orderRepo.calls)
+	require.Equal(t, 0, orderRepo.createCalls)
 }
 
 func TestOrderService_CreateOrder_MenuItemUnavailable(t *testing.T) {
@@ -394,7 +428,7 @@ func TestOrderService_CreateOrder_MenuItemUnavailable(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -419,7 +453,7 @@ func TestOrderService_CreateOrder_MenuItemUnavailable(t *testing.T) {
 	require.True(t, uow.rolledBack)
 	require.False(t, uow.committed)
 
-	require.Equal(t, 0, orderRepo.calls)
+	require.Equal(t, 0, orderRepo.createCalls)
 }
 
 func TestOrderService_CreateOrder_MenuItemRestaurantMismatch(t *testing.T) {
@@ -452,7 +486,7 @@ func TestOrderService_CreateOrder_MenuItemRestaurantMismatch(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -477,7 +511,7 @@ func TestOrderService_CreateOrder_MenuItemRestaurantMismatch(t *testing.T) {
 	require.True(t, uow.rolledBack)
 	require.False(t, uow.committed)
 
-	require.Equal(t, 0, orderRepo.calls)
+	require.Equal(t, 0, orderRepo.createCalls)
 }
 
 func TestOrderService_CreateOrder_RestaurantRepositoryError(t *testing.T) {
@@ -495,7 +529,7 @@ func TestOrderService_CreateOrder_RestaurantRepositoryError(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -539,7 +573,7 @@ func TestOrderService_CreateOrder_MenuRepositoryError(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -595,7 +629,7 @@ func TestOrderService_CreateOrder_OrderRepositoryError(t *testing.T) {
 		},
 	}
 
-	orderService := NewOrderService(uow)
+	orderService := NewOrderService(uow, nil)
 
 	_, err := orderService.CreateOrder(
 		context.Background(),
@@ -612,7 +646,7 @@ func TestOrderService_CreateOrder_OrderRepositoryError(t *testing.T) {
 	)
 
 	require.ErrorIs(t, err, repositoryErr)
-	require.Equal(t, 1, orderRepo.calls)
+	require.Equal(t, 1, orderRepo.createCalls)
 
 	require.Equal(t, int64(12345), orderRepo.received.UserID)
 

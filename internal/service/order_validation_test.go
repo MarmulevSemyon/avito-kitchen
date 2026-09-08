@@ -41,7 +41,7 @@ func TestOrderService_CreateOrder_InvalidUserID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			uow := &userValidationUnitOfWorkStub{}
 
-			orderService := NewOrderService(uow)
+			orderService := NewOrderService(uow, nil)
 
 			_, err := orderService.CreateOrder(
 				context.Background(),
