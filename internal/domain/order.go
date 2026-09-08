@@ -5,17 +5,30 @@ import (
 	"time"
 )
 
+// OrderStatus представляет состояние заказа.
 type OrderStatus string
 
 const (
-	OrderStatusCreated   OrderStatus = "CREATED"
-	OrderStatusAccepted  OrderStatus = "ACCEPTED"
+	// OrderStatusCreated означает, что заказ создан.
+	OrderStatusCreated OrderStatus = "CREATED"
+
+	// OrderStatusAccepted означает, что ресторан принял заказ.
+	OrderStatusAccepted OrderStatus = "ACCEPTED"
+
+	// OrderStatusPreparing означает, что заказ готовится.
 	OrderStatusPreparing OrderStatus = "PREPARING"
-	OrderStatusReady     OrderStatus = "READY"
+
+	// OrderStatusReady означает, что заказ готов к выдаче.
+	OrderStatusReady OrderStatus = "READY"
+
+	// OrderStatusCompleted означает, что заказ завершён.
 	OrderStatusCompleted OrderStatus = "COMPLETED"
-	OrderStatusRejected  OrderStatus = "REJECTED"
+
+	// OrderStatusRejected означает, что заказ отменён.
+	OrderStatusRejected OrderStatus = "REJECTED"
 )
 
+// Order представляет заказ пользователя.
 type Order struct {
 	ID           int64
 	UserID       int64
@@ -27,6 +40,7 @@ type Order struct {
 	UpdatedAt    time.Time
 }
 
+// OrderItem представляет элемент заказа.
 type OrderItem struct {
 	ID         int64
 	OrderID    int64
@@ -38,6 +52,7 @@ type OrderItem struct {
 	Quantity  int
 }
 
+// CanTransitionTo проверяет возможность перехода заказа в новый статус.
 func (s OrderStatus) CanTransitionTo(next OrderStatus) bool {
 	switch s {
 	case OrderStatusCreated:
@@ -61,6 +76,7 @@ func (s OrderStatus) CanTransitionTo(next OrderStatus) bool {
 	}
 }
 
+// ChangeStatus изменяет статус заказа с проверкой допустимого перехода.
 func (o *Order) ChangeStatus(next OrderStatus) error {
 	if !o.Status.CanTransitionTo(next) {
 		return fmt.Errorf(

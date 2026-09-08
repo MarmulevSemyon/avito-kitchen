@@ -2,6 +2,7 @@ package domain
 
 import "time"
 
+// Restaurant представляет ресторан.
 type Restaurant struct {
 	ID          int64
 	Name        string

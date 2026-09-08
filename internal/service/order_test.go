@@ -113,7 +113,7 @@ type unitOfWorkStub struct {
 }
 
 func (u *unitOfWorkStub) WithinTransaction(
-	ctx context.Context,
+	_ context.Context,
 	fn func(repositories TransactionRepositories) error,
 ) error {
 	u.calls++

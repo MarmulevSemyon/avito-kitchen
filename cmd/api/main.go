@@ -1,3 +1,4 @@
+// Package main запускает HTTP API сервиса.
 package main
 
 import (

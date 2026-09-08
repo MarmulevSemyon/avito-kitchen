@@ -1,3 +1,4 @@
+// Package postgres содержит реализацию работы с PostgreSQL.
 package postgres
 
 import (

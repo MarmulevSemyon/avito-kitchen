@@ -6,6 +6,7 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// NewRouter создаёт маршрутизатор HTTP API.
 func NewRouter(
 	restaurantService *service.RestaurantService,
 	orderService *service.OrderService,

@@ -1,3 +1,4 @@
+// Package main запускает демонстрационный клиент ресторана.
 package main
 
 import (

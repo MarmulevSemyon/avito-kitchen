@@ -11,16 +11,19 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// MenuItemRepository реализует работу с меню ресторана в PostgreSQL.
 type MenuItemRepository struct {
 	db DBTX
 }
 
+// NewMenuItemRepository создаёт новый репозиторий меню.
 func NewMenuItemRepository(db DBTX) *MenuItemRepository {
 	return &MenuItemRepository{
 		db: db,
 	}
 }
 
+// ListByRestaurantID возвращает меню указанного ресторана.
 func (r *MenuItemRepository) ListByRestaurantID(
 	ctx context.Context,
 	restaurantID int64,
@@ -81,6 +84,7 @@ func (r *MenuItemRepository) ListByRestaurantID(
 	return menuItems, nil
 }
 
+// GetByID возвращает элемент меню по идентификатору.
 func (r *MenuItemRepository) GetByID(
 	ctx context.Context,
 	id int64,
@@ -129,6 +133,7 @@ func (r *MenuItemRepository) GetByID(
 	return menuItem, nil
 }
 
+// Create создаёт новый элемент меню.
 func (r *MenuItemRepository) Create(
 	ctx context.Context,
 	menuItem domain.MenuItem,
@@ -171,6 +176,7 @@ func (r *MenuItemRepository) Create(
 	return menuItem, nil
 }
 
+// Update обновляет элемент меню.
 func (r *MenuItemRepository) Update(
 	ctx context.Context,
 	menuItem domain.MenuItem,
@@ -212,6 +218,7 @@ func (r *MenuItemRepository) Update(
 	return menuItem, nil
 }
 
+// GetByIDsLocked получает элементы меню с блокировкой.
 func (r *MenuItemRepository) GetByIDsLocked(
 	ctx context.Context,
 	ids []int64,

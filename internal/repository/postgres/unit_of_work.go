@@ -9,16 +9,19 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// UnitOfWork управляет выполнением операций внутри транзакции.
 type UnitOfWork struct {
 	pool *pgxpool.Pool
 }
 
+// NewUnitOfWork создаёт новый менеджер транзакций.
 func NewUnitOfWork(pool *pgxpool.Pool) *UnitOfWork {
 	return &UnitOfWork{
 		pool: pool,
 	}
 }
 
+// WithinTransaction выполняет функцию внутри транзакции.
 func (u *UnitOfWork) WithinTransaction(
 	ctx context.Context,
 	fn func(repositories service.TransactionRepositories) error,

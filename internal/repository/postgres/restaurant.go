@@ -11,16 +11,19 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// RestaurantRepository реализует работу с ресторанами в PostgreSQL.
 type RestaurantRepository struct {
 	db DBTX
 }
 
+// NewRestaurantRepository создаёт новый репозиторий ресторанов.
 func NewRestaurantRepository(db DBTX) *RestaurantRepository {
 	return &RestaurantRepository{
 		db: db,
 	}
 }
 
+// ListActive возвращает список активных ресторанов.
 func (r *RestaurantRepository) ListActive(
 	ctx context.Context,
 ) ([]domain.Restaurant, error) {
@@ -69,6 +72,7 @@ func (r *RestaurantRepository) ListActive(
 	return restaurants, nil
 }
 
+// GetByID возвращает ресторан по идентификатору.
 func (r *RestaurantRepository) GetByID(
 	ctx context.Context,
 	id int64,
@@ -113,6 +117,7 @@ func (r *RestaurantRepository) GetByID(
 	return restaurant, nil
 }
 
+// GetByIDLocked возвращает ресторан по идентификатору с блокировкой строки.
 func (r *RestaurantRepository) GetByIDLocked(
 	ctx context.Context,
 	id int64,

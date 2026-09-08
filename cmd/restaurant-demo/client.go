@@ -157,7 +157,11 @@ func (c *apiClient) updateStatus(
 			err,
 		)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	if response.StatusCode != http.StatusOK {
 		return responseError(response)

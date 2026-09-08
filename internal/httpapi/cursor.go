@@ -1,3 +1,4 @@
+// Package httpapi содержит HTTP handlers и маршрутизацию API.
 package httpapi
 
 import (

@@ -2,6 +2,7 @@ package domain
 
 import "time"
 
+// MenuItem представляет элемент меню ресторана.
 type MenuItem struct {
 	ID           int64
 	RestaurantID int64

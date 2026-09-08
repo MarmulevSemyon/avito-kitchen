@@ -46,11 +46,13 @@ type RestaurantMenuRepository interface {
 	) (domain.MenuItem, error)
 }
 
+// RestaurantService реализует бизнес-логику работы с ресторанами.
 type RestaurantService struct {
 	restaurants RestaurantCatalogRepository
 	menuItems   RestaurantMenuRepository
 }
 
+// NewRestaurantService создаёт сервис ресторанов.
 func NewRestaurantService(
 	restaurants RestaurantCatalogRepository,
 	menuItems RestaurantMenuRepository,
@@ -61,6 +63,7 @@ func NewRestaurantService(
 	}
 }
 
+// CreateMenuItemInput содержит данные для создания элемента меню.
 type CreateMenuItemInput struct {
 	RestaurantID int64
 	Name         string
@@ -68,6 +71,7 @@ type CreateMenuItemInput struct {
 	Price        int64
 }
 
+// UpdateMenuItemInput содержит данные для обновления элемента меню.
 type UpdateMenuItemInput struct {
 	RestaurantID int64
 	MenuItemID   int64
@@ -78,6 +82,7 @@ type UpdateMenuItemInput struct {
 	IsAvailable *bool
 }
 
+// ListRestaurants возвращает список ресторанов.
 func (s *RestaurantService) ListRestaurants(
 	ctx context.Context,
 ) ([]domain.Restaurant, error) {
@@ -89,6 +94,7 @@ func (s *RestaurantService) ListRestaurants(
 	return restaurants, nil
 }
 
+// GetMenu возвращает меню ресторана.
 func (s *RestaurantService) GetMenu(
 	ctx context.Context,
 	restaurantID int64,
@@ -120,6 +126,7 @@ func (s *RestaurantService) GetMenu(
 	return menuItems, nil
 }
 
+// CreateMenuItem создаёт новый элемент меню ресторана.
 func (s *RestaurantService) CreateMenuItem(
 	ctx context.Context,
 	input CreateMenuItemInput,
@@ -168,6 +175,7 @@ func (s *RestaurantService) CreateMenuItem(
 	return createdMenuItem, nil
 }
 
+// UpdateMenuItem обновляет элемент меню ресторана.
 func (s *RestaurantService) UpdateMenuItem(
 	ctx context.Context,
 	input UpdateMenuItemInput,

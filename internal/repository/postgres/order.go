@@ -12,16 +12,19 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// OrderRepository реализует работу с заказами в PostgreSQL.
 type OrderRepository struct {
 	db DBTX
 }
 
+// NewOrderRepository создаёт новый репозиторий заказов.
 func NewOrderRepository(db DBTX) *OrderRepository {
 	return &OrderRepository{
 		db: db,
 	}
 }
 
+// Create создаёт новый заказ.
 func (r *OrderRepository) Create(
 	ctx context.Context,
 	order domain.Order,
@@ -98,6 +101,7 @@ func (r *OrderRepository) Create(
 	return order, nil
 }
 
+// GetByID получает заказ по идентификатору.
 func (r *OrderRepository) GetByID(
 	ctx context.Context,
 	id int64,
@@ -120,6 +124,7 @@ func (r *OrderRepository) GetByID(
 	return order, nil
 }
 
+// GetByIDLocked получает заказ с блокировкой.
 func (r *OrderRepository) GetByIDLocked(
 	ctx context.Context,
 	id int64,
@@ -127,6 +132,7 @@ func (r *OrderRepository) GetByIDLocked(
 	return r.getOrderHeader(ctx, id, true)
 }
 
+// UpdateStatus изменяет статус заказа.
 func (r *OrderRepository) UpdateStatus(
 	ctx context.Context,
 	order domain.Order,
@@ -165,6 +171,7 @@ func (r *OrderRepository) UpdateStatus(
 	return order, nil
 }
 
+// ListByRestaurant возвращает список заказов указанного ресторана с пагинацией.
 func (r *OrderRepository) ListByRestaurant(
 	ctx context.Context,
 	restaurantID int64,
@@ -193,29 +200,22 @@ func (r *OrderRepository) ListByRestaurant(
 	nextArg := 2
 
 	if status != nil {
-		query.WriteString(fmt.Sprintf(
-			`
-			AND o.status_id = (
-				SELECT id
-				FROM order_statuses
-				WHERE code = $%d
-			)
-			`,
-			nextArg,
-		))
+		fmt.Fprintf(&query, `
+        AND o.status_id = (
+            SELECT id
+            FROM order_statuses
+            WHERE code = $%d
+        )
+        `, nextArg)
 
 		args = append(args, *status)
 		nextArg++
 	}
 
 	if cursor != nil {
-		query.WriteString(fmt.Sprintf(
-			`
-			AND (o.created_at, o.id) < ($%d, $%d)
-			`,
-			nextArg,
-			nextArg+1,
-		))
+		fmt.Fprintf(&query, `
+        AND (o.created_at, o.id) < ($%d, $%d)
+        `, nextArg, nextArg+1)
 
 		args = append(
 			args,
@@ -226,13 +226,10 @@ func (r *OrderRepository) ListByRestaurant(
 		nextArg += 2
 	}
 
-	query.WriteString(fmt.Sprintf(
-		`
-		ORDER BY o.created_at DESC, o.id DESC
-		LIMIT $%d
-		`,
-		nextArg,
-	))
+	fmt.Fprintf(&query, `
+    ORDER BY o.created_at DESC, o.id DESC
+    LIMIT $%d
+    `, nextArg)
 
 	args = append(args, limit)
 

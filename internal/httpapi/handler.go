@@ -6,11 +6,13 @@ import (
 	"github.com/talense-tasks/backend-trainee-assignment-autumn-2026-flow-2-marmulevsemyon-f974dedd/internal/service"
 )
 
+// Handler содержит HTTP обработчики API.
 type Handler struct {
 	restaurantService *service.RestaurantService
 	orderService      *service.OrderService
 }
 
+// NewHandler создаёт новый HTTP handler.
 func NewHandler(
 	restaurantService *service.RestaurantService,
 	orderService *service.OrderService,

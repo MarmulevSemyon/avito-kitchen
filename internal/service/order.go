@@ -1,3 +1,4 @@
+// Package service содержит бизнес-логику приложения.
 package service
 
 import (
@@ -13,8 +14,8 @@ const (
 	maxOrdersLimit     = 100
 )
 
-// RestaurantRepository contains restaurant operations required
-// inside transactional order use cases.
+// RestaurantRepository содержит операции с ресторанами,
+// необходимые внутри транзакционных сценариев оформления заказа.
 type RestaurantRepository interface {
 	GetByIDLocked(
 		ctx context.Context,
@@ -22,8 +23,8 @@ type RestaurantRepository interface {
 	) (domain.Restaurant, error)
 }
 
-// MenuItemRepository contains menu operations required
-// inside transactional order use cases.
+// MenuItemRepository содержит операции с пунктами меню,
+// необходимые внутри транзакционных сценариев оформления заказа.
 type MenuItemRepository interface {
 	GetByIDsLocked(
 		ctx context.Context,
@@ -31,8 +32,8 @@ type MenuItemRepository interface {
 	) ([]domain.MenuItem, error)
 }
 
-// OrderRepository contains order operations that must participate
-// in the current transaction.
+// OrderRepository содержит операции с заказами,
+// которые должны выполняться в рамках текущей транзакции.
 type OrderRepository interface {
 	Create(
 		ctx context.Context,
@@ -50,7 +51,7 @@ type OrderRepository interface {
 	) (domain.Order, error)
 }
 
-// OrderQueryRepository contains non-transactional order reads.
+// OrderQueryRepository содержит нетранзакционные операции чтения заказов.
 type OrderQueryRepository interface {
 	GetByID(
 		ctx context.Context,
@@ -66,12 +67,14 @@ type OrderQueryRepository interface {
 	) ([]domain.Order, error)
 }
 
+// TransactionRepositories содержит репозитории, работающие внутри транзакции.
 type TransactionRepositories struct {
 	Restaurants RestaurantRepository
 	MenuItems   MenuItemRepository
 	Orders      OrderRepository
 }
 
+// UnitOfWork управляет выполнением операций внутри транзакции.
 type UnitOfWork interface {
 	WithinTransaction(
 		ctx context.Context,
@@ -79,11 +82,13 @@ type UnitOfWork interface {
 	) error
 }
 
+// OrderService реализует бизнес-логику работы с заказами.
 type OrderService struct {
 	uow     UnitOfWork
 	queries OrderQueryRepository
 }
 
+// NewOrderService создаёт сервис заказов.
 func NewOrderService(
 	uow UnitOfWork,
 	queries OrderQueryRepository,
@@ -94,22 +99,26 @@ func NewOrderService(
 	}
 }
 
+// CreateOrderInput содержит данные для создания заказа.
 type CreateOrderInput struct {
 	UserID       int64
 	RestaurantID int64
 	Items        []CreateOrderItemInput
 }
 
+// CreateOrderItemInput содержит данные позиции заказа.
 type CreateOrderItemInput struct {
 	MenuItemID int64
 	Quantity   int
 }
 
+// OrderCursor содержит курсор пагинации заказов.
 type OrderCursor struct {
 	CreatedAt time.Time
 	ID        int64
 }
 
+// ListRestaurantOrdersInput содержит параметры списка заказов ресторана.
 type ListRestaurantOrdersInput struct {
 	RestaurantID int64
 	Status       *domain.OrderStatus
@@ -117,17 +126,20 @@ type ListRestaurantOrdersInput struct {
 	Cursor       *OrderCursor
 }
 
+// ListRestaurantOrdersResult содержит результат пагинации заказов.
 type ListRestaurantOrdersResult struct {
 	Orders     []domain.Order
 	NextCursor *OrderCursor
 }
 
+// UpdateOrderStatusInput содержит данные для изменения статуса заказа.
 type UpdateOrderStatusInput struct {
 	RestaurantID int64
 	OrderID      int64
 	Status       domain.OrderStatus
 }
 
+// CreateOrder создаёт новый заказ пользователя.
 func (s *OrderService) CreateOrder(
 	ctx context.Context,
 	input CreateOrderInput,
@@ -256,6 +268,7 @@ func (s *OrderService) CreateOrder(
 	return createdOrder, nil
 }
 
+// GetOrder возвращает заказ по идентификатору.
 func (s *OrderService) GetOrder(
 	ctx context.Context,
 	orderID int64,
@@ -272,6 +285,7 @@ func (s *OrderService) GetOrder(
 	return order, nil
 }
 
+// ListRestaurantOrders возвращает список заказов ресторана с пагинацией.
 func (s *OrderService) ListRestaurantOrders(
 	ctx context.Context,
 	input ListRestaurantOrdersInput,
@@ -328,6 +342,7 @@ func (s *OrderService) ListRestaurantOrders(
 	return result, nil
 }
 
+// UpdateStatus изменяет статус заказа.
 func (s *OrderService) UpdateStatus(
 	ctx context.Context,
 	input UpdateOrderStatusInput,
