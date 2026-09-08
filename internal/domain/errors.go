@@ -5,6 +5,8 @@ import "errors"
 var (
 	ErrInvalidOrderStatusTransition = errors.New("invalid order status transition")
 
+	ErrInvalidUserID = errors.New("user id must be positive")
+
 	ErrRestaurantNotFound    = errors.New("restaurant not found")
 	ErrRestaurantUnavailable = errors.New("restaurant unavailable")
 

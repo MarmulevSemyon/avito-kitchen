@@ -1,7 +1,8 @@
 POSTGRES_USER ?= avito
 POSTGRES_PASSWORD ?= avito
 POSTGRES_DB ?= avito_kitchen
-POSTGRES_PORT ?= 5432
+# TODO надо исправить в конце на 5432
+POSTGRES_PORT ?= 5433
 
 DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
 TEST_DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/postgres?sslmode=disable
@@ -39,4 +40,5 @@ test:
 
 test-integration:
 	docker compose up -d --wait postgres
-	go test ./internal/repository/postgres -v
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" \
+		go test ./internal/repository/postgres -v -count=1

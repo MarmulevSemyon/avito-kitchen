@@ -85,6 +85,10 @@ func (s *OrderService) CreateOrder(
 	ctx context.Context,
 	input CreateOrderInput,
 ) (domain.Order, error) {
+	if input.UserID <= 0 {
+		return domain.Order{}, domain.ErrInvalidUserID
+	}
+
 	if len(input.Items) == 0 {
 		return domain.Order{}, domain.ErrEmptyOrder
 	}
