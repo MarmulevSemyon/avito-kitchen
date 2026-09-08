@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-avito_kitchen}
 
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -18,14 +18,16 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+          "pg_isready -U ${POSTGRES_USER:-avito} -d ${POSTGRES_DB:-avito_kitchen}"
         ]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
 
   migrate:
     image: migrate/migrate:v4.18.3
+    container_name: avito-kitchen-migrate
 
     depends_on:
       postgres:
@@ -36,12 +38,67 @@ services:
 
     command:
       [
-        "-path",
-        "/migrations",
-        "-database",
-        "postgres://${POSTGRES_USER:-avito}:${POSTGRES_PASSWORD:-avito}@postgres:5432/${POSTGRES_DB:-avito_kitchen}?sslmode=disable",
+        "-path=/migrations",
+        "-database=postgres://${POSTGRES_USER:-avito}:${POSTGRES_PASSWORD:-avito}@postgres:5432/${POSTGRES_DB:-avito_kitchen}?sslmode=disable",
         "up"
       ]
+
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+
+    container_name: avito-kitchen-api
+
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-avito}:${POSTGRES_PASSWORD:-avito}@postgres:5432/${POSTGRES_DB:-avito_kitchen}?sslmode=disable
+      HTTP_ADDRESS: ":8080"
+
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      migrate:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://localhost:8080/healthz >/dev/null 2>&1 || exit 1"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+    restart: unless-stopped
+
+
+  restaurant-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: restaurant-demo
+
+    container_name: avito-kitchen-restaurant-demo
+
+    environment:
+      API_BASE_URL: http://api:8080
+      RESTAURANT_ID: ${DEMO_RESTAURANT_ID:-1}
+      POLL_INTERVAL: ${DEMO_POLL_INTERVAL:-5s}
+      STATUS_DELAY: ${DEMO_STATUS_DELAY:-2s}
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:

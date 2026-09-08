@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+
+.idea
+.vscode
+
+bin
+tmp
+
+*.log
+coverage.out
+
+api
+restaurant-demo

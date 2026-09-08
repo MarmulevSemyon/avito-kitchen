@@ -1,19 +1,24 @@
 POSTGRES_USER ?= avito
 POSTGRES_PASSWORD ?= avito
 POSTGRES_DB ?= avito_kitchen
-# TODO надо исправить в конце на 5432
 POSTGRES_PORT ?= 5433
 
 DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
 TEST_DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/postgres?sslmode=disable
 
-.PHONY: up down logs migrate-up migrate-down db-shell db-reset test test-integration
+.PHONY: up down restart logs status migrate-up migrate-down db-shell db-reset test test-integration
 
 up:
-	docker compose up -d
+	docker compose up -d --build
 
 down:
 	docker compose down
+
+restart:
+	docker compose restart
+	
+status:
+	docker compose ps
 
 logs:
 	docker compose logs -f

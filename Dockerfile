@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /src
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -mod=vendor \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/api \
+    ./cmd/api
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -mod=vendor \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/restaurant-demo \
+    ./cmd/restaurant-demo
+
+
+FROM alpine:3.22 AS api
+
+RUN addgroup -S app && adduser -S -G app app
+
+WORKDIR /app
+
+COPY --from=builder /out/api /app/api
+
+USER app
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/api"]
+
+
+FROM alpine:3.22 AS restaurant-demo
+
+RUN addgroup -S app && adduser -S -G app app
+
+WORKDIR /app
+
+COPY --from=builder /out/restaurant-demo /app/restaurant-demo
+
+USER app
+
+ENTRYPOINT ["/app/restaurant-demo"]

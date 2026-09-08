@@ -6,137 +6,195 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
-const defaultTestDatabaseURL = "postgres://avito:avito@localhost:5432/postgres?sslmode=disable"
+const defaultTestDatabaseURL = "postgres://avito:avito@localhost:5433/postgres?sslmode=disable"
 
 func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
 	ctx := context.Background()
 
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	usingDefaultURL := databaseURL == ""
+	adminURL := os.Getenv("TEST_DATABASE_URL")
+	explicitURL := adminURL != ""
 
-	if usingDefaultURL {
-		databaseURL = defaultTestDatabaseURL
+	if adminURL == "" {
+		adminURL = defaultTestDatabaseURL
 	}
 
-	adminConfig, err := pgxpool.ParseConfig(databaseURL)
-	require.NoError(t, err)
-
-	// Для CREATE DATABASE подключаемся к системной БД,
-	// а не к avito_kitchen.
-	adminConfig.ConnConfig.Database = "postgres"
-
-	adminPool, err := pgxpool.NewWithConfig(ctx, adminConfig)
-	require.NoError(t, err)
+	adminPool, err := pgxpool.New(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("create admin pool: %v", err)
+	}
 
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
 
-		if usingDefaultURL {
-			t.Skipf(
-				"PostgreSQL is not available at default address: %v",
-				err,
-			)
+		if explicitURL {
+			t.Fatalf("connect to test postgres: %v", err)
 		}
 
-		require.NoError(t, err)
+		t.Skipf("test postgres is unavailable: %v", err)
 	}
-
-	t.Cleanup(adminPool.Close)
 
 	databaseName := fmt.Sprintf(
 		"avito_kitchen_test_%d",
 		time.Now().UnixNano(),
 	)
 
-	databaseIdentifier := pgx.Identifier{databaseName}.Sanitize()
-
 	_, err = adminPool.Exec(
 		ctx,
-		"CREATE DATABASE "+databaseIdentifier,
+		"CREATE DATABASE "+databaseName,
 	)
-	require.NoError(t, err)
-
-	var testPool *pgxpool.Pool
+	if err != nil {
+		adminPool.Close()
+		t.Fatalf("create test database: %v", err)
+	}
 
 	t.Cleanup(func() {
-		if testPool != nil {
-			testPool.Close()
-		}
-
 		_, _ = adminPool.Exec(
 			context.Background(),
-			"DROP DATABASE IF EXISTS "+
-				databaseIdentifier+
-				" WITH (FORCE)",
+			"DROP DATABASE IF EXISTS "+databaseName+" WITH (FORCE)",
 		)
+
+		adminPool.Close()
 	})
 
-	testConfig, err := pgxpool.ParseConfig(databaseURL)
-	require.NoError(t, err)
-
-	testConfig.ConnConfig.Database = databaseName
-
-	testPool, err = pgxpool.NewWithConfig(ctx, testConfig)
-	require.NoError(t, err)
-
-	require.NoError(t, testPool.Ping(ctx))
-
-	applyTestMigration(t, testPool)
-
-	return testPool
-}
-
-func applyTestMigration(
-	t *testing.T,
-	pool *pgxpool.Pool,
-) {
-	t.Helper()
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-
-	migrationPath := filepath.Join(
-		filepath.Dir(currentFile),
-		"..",
-		"..",
-		"..",
-		"migrations",
-		"000001_init.up.sql",
+	databaseURL := replaceDatabaseName(
+		adminURL,
+		databaseName,
 	)
 
-	content, err := os.ReadFile(migrationPath)
-	require.NoError(t, err)
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("create test database pool: %v", err)
+	}
 
-	statements := strings.Split(string(content), ";")
+	t.Cleanup(pool.Close)
 
-	ctx := context.Background()
+	if err := pool.Ping(ctx); err != nil {
+		t.Fatalf("connect to test database: %v", err)
+	}
 
-	for _, statement := range statements {
-		statement = strings.TrimSpace(statement)
+	if err := applyMigrations(ctx, pool); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
 
-		if statement == "" {
-			continue
-		}
+	return pool
+}
 
-		_, err := pool.Exec(ctx, statement)
-		require.NoErrorf(
-			t,
+func applyMigrations(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) error {
+	migrationsDir, err := migrationsDirectory()
+	if err != nil {
+		return err
+	}
+
+	migrationFiles, err := filepath.Glob(
+		filepath.Join(
+			migrationsDir,
+			"*.up.sql",
+		),
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"find migration files: %w",
 			err,
-			"failed migration statement:\n%s",
-			statement,
 		)
 	}
+
+	sort.Strings(migrationFiles)
+
+	for _, migrationFile := range migrationFiles {
+		content, err := os.ReadFile(migrationFile)
+		if err != nil {
+			return fmt.Errorf(
+				"read migration %s: %w",
+				filepath.Base(migrationFile),
+				err,
+			)
+		}
+
+		if _, err := pool.Exec(
+			ctx,
+			string(content),
+		); err != nil {
+			return fmt.Errorf(
+				"execute migration %s: %w",
+				filepath.Base(migrationFile),
+				err,
+			)
+		}
+	}
+
+	return nil
+}
+
+func migrationsDirectory() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf(
+			"determine current test file path",
+		)
+	}
+
+	projectRoot := filepath.Clean(
+		filepath.Join(
+			filepath.Dir(filename),
+			"..",
+			"..",
+			"..",
+		),
+	)
+
+	return filepath.Join(
+		projectRoot,
+		"migrations",
+	), nil
+}
+
+func replaceDatabaseName(
+	databaseURL string,
+	databaseName string,
+) string {
+	const separator = "/"
+
+	queryIndex := strings.Index(
+		databaseURL,
+		"?",
+	)
+
+	var base string
+	var query string
+
+	if queryIndex >= 0 {
+		base = databaseURL[:queryIndex]
+		query = databaseURL[queryIndex:]
+	} else {
+		base = databaseURL
+	}
+
+	lastSlash := strings.LastIndex(
+		base,
+		separator,
+	)
+
+	if lastSlash < 0 {
+		return databaseURL
+	}
+
+	return base[:lastSlash+1] +
+		databaseName +
+		query
 }
 
 func insertTestRestaurant(
