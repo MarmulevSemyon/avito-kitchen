@@ -24,11 +24,18 @@ func (r *OrderRepository) Create(
 ) (domain.Order, error) {
 	const createOrderQuery = `
 		INSERT INTO orders (
+			user_id,
 			restaurant_id,
-			status,
+			status_id,
 			total_price
 		)
-		VALUES ($1, $2, $3)
+		SELECT
+			$1,
+			$2,
+			s.id,
+			$4
+		FROM order_statuses AS s
+		WHERE s.code = $3
 		RETURNING
 			id,
 			created_at,
@@ -38,6 +45,7 @@ func (r *OrderRepository) Create(
 	err := r.db.QueryRow(
 		ctx,
 		createOrderQuery,
+		order.UserID,
 		order.RestaurantID,
 		order.Status,
 		order.TotalPrice,

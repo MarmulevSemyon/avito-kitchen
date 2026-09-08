@@ -137,6 +137,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 	order, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -162,9 +163,12 @@ func TestOrderService_CreateOrder(t *testing.T) {
 	require.Equal(t, 1, orderRepo.calls)
 
 	require.Equal(t, int64(1), order.ID)
+	require.Equal(t, int64(12345), order.UserID)
 	require.Equal(t, int64(1), order.RestaurantID)
 	require.Equal(t, domain.OrderStatusCreated, order.Status)
 	require.Equal(t, int64(115000), order.TotalPrice)
+
+	require.Equal(t, int64(12345), orderRepo.received.UserID)
 
 	require.Len(t, order.Items, 2)
 
@@ -187,6 +191,7 @@ func TestOrderService_CreateOrder_EmptyOrder(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 		},
 	)
@@ -205,6 +210,7 @@ func TestOrderService_CreateOrder_InvalidQuantity(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -233,6 +239,7 @@ func TestOrderService_CreateOrder_DuplicateMenuItem(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -280,6 +287,7 @@ func TestOrderService_CreateOrder_RestaurantUnavailable(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -299,7 +307,6 @@ func TestOrderService_CreateOrder_RestaurantUnavailable(t *testing.T) {
 	require.Equal(t, 1, uow.calls)
 	require.False(t, uow.committed)
 	require.True(t, uow.rolledBack)
-
 	require.Equal(t, 1, restaurantRepo.calls)
 
 	// Если ресторан недоступен, меню уже читать незачем.
@@ -338,6 +345,7 @@ func TestOrderService_CreateOrder_MenuItemNotFound(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -391,6 +399,7 @@ func TestOrderService_CreateOrder_MenuItemUnavailable(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -448,6 +457,7 @@ func TestOrderService_CreateOrder_MenuItemRestaurantMismatch(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -490,6 +500,7 @@ func TestOrderService_CreateOrder_RestaurantRepositoryError(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -533,6 +544,7 @@ func TestOrderService_CreateOrder_MenuRepositoryError(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -588,6 +600,7 @@ func TestOrderService_CreateOrder_OrderRepositoryError(t *testing.T) {
 	_, err := orderService.CreateOrder(
 		context.Background(),
 		CreateOrderInput{
+			UserID:       12345,
 			RestaurantID: 1,
 			Items: []CreateOrderItemInput{
 				{
@@ -599,8 +612,9 @@ func TestOrderService_CreateOrder_OrderRepositoryError(t *testing.T) {
 	)
 
 	require.ErrorIs(t, err, repositoryErr)
-
 	require.Equal(t, 1, orderRepo.calls)
+
+	require.Equal(t, int64(12345), orderRepo.received.UserID)
 
 	require.True(t, uow.rolledBack)
 	require.False(t, uow.committed)

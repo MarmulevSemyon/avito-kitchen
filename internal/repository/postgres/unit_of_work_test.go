@@ -42,6 +42,7 @@ func TestUnitOfWork_Commit(t *testing.T) {
 			repositories service.TransactionRepositories,
 		) error {
 			order := domain.Order{
+				UserID:       12345,
 				RestaurantID: restaurantID,
 				Status:       domain.OrderStatusCreated,
 				TotalPrice:   1400,
@@ -71,20 +72,39 @@ func TestUnitOfWork_Commit(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, createdOrderID)
 
-	var orderCount int
+	var (
+		orderCount int
+		dbUserID   int64
+		dbStatus   string
+	)
 
 	err = pool.QueryRow(
 		context.Background(),
 		`
-			SELECT COUNT(*)
-			FROM orders
-			WHERE id = $1
+			SELECT
+				COUNT(*),
+				MAX(o.user_id),
+				MAX(s.code)
+			FROM orders AS o
+			JOIN order_statuses AS s
+				ON s.id = o.status_id
+			WHERE o.id = $1
 		`,
 		createdOrderID,
-	).Scan(&orderCount)
+	).Scan(
+		&orderCount,
+		&dbUserID,
+		&dbStatus,
+	)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, orderCount)
+	require.Equal(t, int64(12345), dbUserID)
+	require.Equal(
+		t,
+		string(domain.OrderStatusCreated),
+		dbStatus,
+	)
 
 	var itemCount int
 
@@ -135,6 +155,7 @@ func TestUnitOfWork_Rollback(t *testing.T) {
 			repositories service.TransactionRepositories,
 		) error {
 			order := domain.Order{
+				UserID:       12345,
 				RestaurantID: restaurantID,
 				Status:       domain.OrderStatusCreated,
 				TotalPrice:   1400,

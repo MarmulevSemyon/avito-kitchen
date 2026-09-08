@@ -18,6 +18,7 @@ const (
 
 type Order struct {
 	ID           int64
+	UserID       int64
 	RestaurantID int64
 	Status       OrderStatus
 	TotalPrice   int64

@@ -26,10 +26,25 @@ CREATE TABLE menu_items (
         CHECK (price >= 0)
 );
 
+CREATE TABLE order_statuses (
+    id SMALLINT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE
+);
+
+INSERT INTO order_statuses (id, code)
+VALUES
+    (1, 'CREATED'),
+    (2, 'ACCEPTED'),
+    (3, 'PREPARING'),
+    (4, 'READY'),
+    (5, 'COMPLETED'),
+    (6, 'REJECTED');
+
 CREATE TABLE orders (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
     restaurant_id BIGINT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'CREATED',
+    status_id SMALLINT NOT NULL,
     total_price BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -39,17 +54,10 @@ CREATE TABLE orders (
         REFERENCES restaurants(id)
         ON DELETE RESTRICT,
 
-    CONSTRAINT chk_orders_status
-        CHECK (
-            status IN (
-                'CREATED',
-                'ACCEPTED',
-                'PREPARING',
-                'READY',
-                'COMPLETED',
-                'REJECTED'
-            )
-        ),
+    CONSTRAINT fk_orders_status
+        FOREIGN KEY (status_id)
+        REFERENCES order_statuses(id)
+        ON DELETE RESTRICT,
 
     CONSTRAINT chk_orders_total_price
         CHECK (total_price >= 0)
@@ -83,8 +91,13 @@ CREATE TABLE order_items (
 CREATE INDEX idx_menu_items_restaurant_id
     ON menu_items (restaurant_id);
 
-CREATE INDEX idx_orders_restaurant_status
-    ON orders (restaurant_id, status);
+CREATE INDEX idx_orders_restaurant_status_created_id
+    ON orders (
+        restaurant_id,
+        status_id,
+        created_at DESC,
+        id DESC
+    );
 
 CREATE INDEX idx_order_items_order_id
     ON order_items (order_id);

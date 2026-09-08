@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const defaultTestDatabaseURL = "postgres://avito:avito@localhost:5433/postgres?sslmode=disable"
+const defaultTestDatabaseURL = "postgres://avito:avito@localhost:5432/postgres?sslmode=disable"
 
 func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()

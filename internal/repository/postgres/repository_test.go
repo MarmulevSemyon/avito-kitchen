@@ -235,6 +235,7 @@ func TestOrderRepository_Create(t *testing.T) {
 	repository := NewOrderRepository(pool)
 
 	order := domain.Order{
+		UserID:       12345,
 		RestaurantID: restaurantID,
 		Status:       domain.OrderStatusCreated,
 		TotalPrice:   2000,
@@ -261,6 +262,9 @@ func TestOrderRepository_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Positive(t, createdOrder.ID)
+	require.Equal(t, int64(12345), createdOrder.UserID)
+	require.Equal(t, restaurantID, createdOrder.RestaurantID)
+	require.Equal(t, domain.OrderStatusCreated, createdOrder.Status)
 	require.False(t, createdOrder.CreatedAt.IsZero())
 	require.False(t, createdOrder.UpdatedAt.IsZero())
 	require.Len(t, createdOrder.Items, 2)
@@ -271,6 +275,7 @@ func TestOrderRepository_Create(t *testing.T) {
 	}
 
 	var (
+		dbUserID       int64
 		dbRestaurantID int64
 		dbStatus       string
 		dbTotalPrice   int64
@@ -280,20 +285,25 @@ func TestOrderRepository_Create(t *testing.T) {
 		context.Background(),
 		`
 			SELECT
-				restaurant_id,
-				status,
-				total_price
-			FROM orders
-			WHERE id = $1
+				o.user_id,
+				o.restaurant_id,
+				s.code,
+				o.total_price
+			FROM orders AS o
+			JOIN order_statuses AS s
+				ON s.id = o.status_id
+			WHERE o.id = $1
 		`,
 		createdOrder.ID,
 	).Scan(
+		&dbUserID,
 		&dbRestaurantID,
 		&dbStatus,
 		&dbTotalPrice,
 	)
 	require.NoError(t, err)
 
+	require.Equal(t, int64(12345), dbUserID)
 	require.Equal(t, restaurantID, dbRestaurantID)
 	require.Equal(
 		t,

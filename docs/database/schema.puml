@@ -27,11 +27,18 @@ entity "menu_items" as menu_items {
     * updated_at : TIMESTAMPTZ
 }
 
+entity "order_statuses" as order_statuses {
+    * id : SMALLINT <<PK>>
+    --
+    * code : TEXT <<UQ>>
+}
+
 entity "orders" as orders {
     * id : BIGINT <<PK>>
     --
+    * user_id : BIGINT
     * restaurant_id : BIGINT <<FK>>
-    * status : TEXT
+    * status_id : SMALLINT <<FK>>
     * total_price : BIGINT
     * created_at : TIMESTAMPTZ
     * updated_at : TIMESTAMPTZ
@@ -49,12 +56,24 @@ entity "order_items" as order_items {
 
 restaurants ||--o{ menu_items : contains
 restaurants ||--o{ orders : receives
+
+order_statuses ||--o{ orders : status
+
 orders ||--|{ order_items : contains
 menu_items ||--o{ order_items : source
+
+note right of orders
+user_id — внешний идентификатор
+пользователя основной платформы Avito.
+
+В MVP отдельная таблица users
+не создаётся.
+end note
 
 note right of order_items
 name и unit_price — это моментальные снимки
 MenuItem на момент создания заказа.
+
 История заказов не зависит от
 последующих изменений в меню.
 end note

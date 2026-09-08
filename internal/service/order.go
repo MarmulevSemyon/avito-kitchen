@@ -71,6 +71,7 @@ func NewOrderService(uow UnitOfWork) *OrderService {
 }
 
 type CreateOrderInput struct {
+	UserID       int64
 	RestaurantID int64
 	Items        []CreateOrderItemInput
 }
@@ -133,6 +134,7 @@ func (s *OrderService) CreateOrder(
 			}
 
 			order := domain.Order{
+				UserID:       input.UserID,
 				RestaurantID: input.RestaurantID,
 				Status:       domain.OrderStatusCreated,
 				Items: make(
