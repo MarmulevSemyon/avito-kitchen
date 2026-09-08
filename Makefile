@@ -6,7 +6,7 @@ POSTGRES_PORT ?= 5433
 DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
 TEST_DATABASE_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/postgres?sslmode=disable
 
-.PHONY: up down restart logs status migrate-up migrate-down db-shell db-reset test test-integration
+.PHONY: up down lint restart logs status migrate-up migrate-down db-shell db-reset test test-integration
 
 up:
 	docker compose up -d --build
@@ -16,7 +16,12 @@ down:
 
 restart:
 	docker compose restart
-	
+
+lint:
+	go vet ./...
+	gofmt -w .
+	golangci-lint run
+
 status:
 	docker compose ps
 

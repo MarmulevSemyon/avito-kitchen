@@ -1,0 +1,20 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - revive
+
+formatters:
+  enable:
+    - gofmt
+
+exclusions:
+  rules:
+    - path: _test\.go
+      linters:
+        - revive

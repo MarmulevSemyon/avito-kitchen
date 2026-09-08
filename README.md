@@ -1,3 +1,219 @@
+# Avito.Kitchen
+
+MVP backend-сервис заказа еды, реализованный в рамках тестового задания Avito Backend.
+
+Проект реализован на Go с использованием PostgreSQL.
+
+Основные возможности:
+
+- просмотр ресторанов;
+- просмотр меню;
+- создание заказа;
+- обработка заказа рестораном;
+- изменение статусов заказа;
+- хранение истории заказа через snapshot позиций меню;
+- REST API интеграция с Demo Restaurant.
+
+---
+
+## Contents
+
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [API](#api)
+- [Testing](#testing)
+- [Business scenarios](#business-scenarios)
+- [Architecture](#architecture)
+- [Scaling limitations](#scaling-limitations)
+
+---
+
+## Quick Start
+
+### Requirements
+
+Для запуска необходимы:
+
+- Docker;
+- Docker Compose;
+- Make;
+- Go 1.25+ (для локальной разработки).
+
+### Run
+
+Запуск всех сервисов:
+
+```commandline
+make up
+```
+
+После запуска будут доступны:
+
+```text
+API:
+http://localhost:8080
+
+PostgreSQL:
+localhost:5433
+```
+
+Проверка состояния API:
+
+```commandline
+curl http://localhost:8080/healthz
+```
+
+Ожидаемый ответ:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### Stop
+
+Остановка контейнеров:
+
+```commandline
+make down
+```
+
+Перезапуск контейнеров:
+
+```commandline
+make restart
+```
+
+Просмотр состояния:
+
+```commandline
+make status
+```
+
+Просмотр логов:
+
+```commandline
+make logs
+```
+
+Полный сброс окружения вместе с PostgreSQL volume:
+
+```commandline
+docker compose down -v
+```
+
+---
+
+## Documentation
+
+Основная документация проекта:
+
+- [OpenAPI specification](docs/openapi.yaml)
+- [Database schema](docs/schema.puml)
+- [C4 Container Diagram](docs/c4-container.puml)
+- [User scenarios](docs/scenarios/user-scenarios.md)
+- [Restaurant scenarios](docs/scenarios/restaurant-scenarios.md)
+- [User CJM](docs/cjm/user-cjm.puml)
+- [Restaurant CJM](docs/cjm/restaurant-cjm.puml)
+
+---
+
+## API
+
+REST API предоставляет интерфейсы для пользователя и ресторана.
+
+Основные пользовательские endpoints:
+
+```text
+GET  /api/v1/restaurants
+
+GET  /api/v1/restaurants/{restaurant_id}/menu-items
+
+POST /api/v1/orders
+
+GET  /api/v1/orders/{order_id}
+```
+
+Endpoints ресторана:
+
+```text
+POST  /api/v1/restaurants/{restaurant_id}/menu-items
+
+PATCH /api/v1/restaurants/{restaurant_id}/menu-items/{menu_item_id}
+
+GET   /api/v1/restaurants/{restaurant_id}/orders
+
+PATCH /api/v1/restaurants/{restaurant_id}/orders/{order_id}/status
+```
+
+Полное описание контрактов находится в:
+
+```text
+docs/openapi.yaml
+```
+
+---
+
+## Demo Restaurant
+
+Для демонстрации полного сценария реализован отдельный сервис ресторана.
+
+Demo Restaurant:
+
+- запускается в отдельном Docker-контейнере;
+- не имеет доступа к PostgreSQL;
+- не использует внутренние пакеты основного приложения;
+- взаимодействует с Avito.Kitchen только через REST API.
+
+Сценарий обработки заказа:
+
+```text
+CREATED
+   ↓
+ACCEPTED
+   ↓
+PREPARING
+   ↓
+READY
+   ↓
+COMPLETED
+```
+
+Посмотреть работу сервиса:
+
+```commandline
+docker compose logs -f restaurant-demo
+```
+
+---
+
+## Testing
+
+Запуск всех тестов:
+
+```commandline
+make test
+```
+
+Integration tests PostgreSQL:
+
+```commandline
+make test-integration
+```
+
+Integration tests проверяют:
+
+- реальные SQL-запросы;
+- repository layer;
+- Unit of Work;
+- commit;
+- rollback;
+- блокировки строк;
+- создание заказа.
+
+---
+
 ## Business scenarios
 
 Проект покрывает основные пользовательские сценарии:
